@@ -23,17 +23,21 @@ class Cube3D:
         if self.ACTIONS is None:
             self.ACTIONS = self.get_actions_possible()
         return self.ACTIONS.keys()
+    
+    @property
+    def flattened(self) -> np.ndarray:
+        return self.cube.reshape(self.N**3)
 
     def sort_loss(self) -> float:
         loss = 0
-        input = self.cube.reshape(self.N**3)
+        input = self.flattened
         for i in range(len(input)):
             for j in range(i, len(input)):
                 if input[i] > input[j] and all([input[i] > 0, input[j] > 0]):
                     loss += 1
         return loss
 
-    def plot_cube(self):
+    def plot(self):
         N = self.cube.shape[0]
         axes = [N, N, N] # change to 64
         alpha = 0.5
@@ -50,7 +54,7 @@ class Cube3D:
         )
         plt.show()
 
-    def rotate_cube(self, axi, level, clockwise=True):
+    def rotate(self, axi, level, clockwise=True):
         _r = 1 if clockwise is True else -1
         if axi not in (0, 1, 2):
             raise ValueError('`axi` must be one of {0, 1, 2}')
@@ -70,9 +74,9 @@ class Cube3D:
             self.cube = np.rot90(self.cube, k=-1, axes=(1,2))
         return self.cube
 
-    def mix_cube(self, steps=50):
+    def mix(self, steps=50):
         for _ in range(steps):
-            self.rotate_cube(
+            self.rotate(
                 choice(list(range(self.N))),
                 choice(list(range(self.N))),
                 clockwise=choice([True, False])
@@ -81,21 +85,24 @@ class Cube3D:
     def get_actions_possible(self):
         """N is the cude dimension."""
         if self.ACTIONS is None:
-            ACTIONS = {
+            self.ACTIONS = {
                 0: {
                     'f': lambda: self.cube,
                     'args': ()
                 }
             }
             for i, (axis, level, clockwise) in enumerate(product(range(3), range(self.N), [True, False]), 1):
-                ACTIONS[i] = {
-                    'f': self.rotate_cube,
+                self.ACTIONS[i] = {
+                    'f': self.rotate,
                     'args': (axis, level, clockwise)
                 }
-        return ACTIONS
+        return self.ACTIONS
 
     def apply_action(self, action_num: int) -> np.ndarray:
         if action_num not in self.action_keys:
             raise ValueError(f'`action_num` should be in {self.action_keys}')
         action = self.ACTIONS[action_num]
         return action['f'](*action['args'])
+
+    def solve(self, model):
+        pass
