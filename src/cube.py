@@ -4,7 +4,9 @@ from itertools import product
 from random import choice
 
 import numpy as np
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 class Cube3D:
@@ -37,14 +39,17 @@ class Cube3D:
                     loss += 1
         return loss
 
-    def plot(self):
+    def plot(self, alpha=0.7, colors_set=None):
         N = self.cube.shape[0]
         axes = [N, N, N] # change to 64
-        alpha = 0.5
         colors = np.empty(axes + [4], dtype=np.float32)
-        colors[self.cube < 10] = [1, 1, 0, alpha]
-        colors[(self.cube > 9) & (self.cube < 19)] = [1, 0, 0, alpha]
-        colors[self.cube > 18] = [0, 0, 1, alpha]
+        if colors_set is None:
+            colors_set = sns.color_palette("husl", N+1).as_hex()
+        COLORS_LIST  = [list(mcolors.to_rgba_array(list(colors_set)[i], alpha=alpha)[0]) for i in range(N+1)]
+        STEPS = [0] + [i*(N**3//N) for i in range(1, N+1)] + [10**10]
+        for i, s in enumerate(STEPS[0:len(STEPS)-1]):
+            print(i, s, STEPS[i+1], COLORS_LIST[i])
+            colors[(self.cube > s) & (self.cube <= STEPS[i+1])] = COLORS_LIST[i]
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
         ax.voxels(
