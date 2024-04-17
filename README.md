@@ -11,6 +11,7 @@ cube.sort_loss()  # calculate convex level of "unsortedness"
 cube.plot(alpha=0.9, colors_set=None)  # plot simplified representation of a cube
 cube.rotate(axi, level, clockwise=True)  # apparently, rotate the cube's side
 cube.mix(n=100)  # perform `n` random rotations
+cube.get_actions_possible()  # returns a dict with possible rotations including ideal (no rotation)
 ```
 ![sorted cube](./assets/cube.sorted.png)
 ![mixed cube](./assets/cube.mixed.png)
