@@ -18,7 +18,13 @@ class Cube3D:
 
     @staticmethod
     def generate_cube(n):
-        return np.array([x for x in range(1, n**3+1)]).reshape(n, n, n)
+        cube = np.array([x for x in range(1, n**3+1)]).reshape(n, n, n)
+        for i in range(n):
+            for j in range(n):
+                for k in range(n):
+                    if all([i>0 and i < n-1, j>0 and j < n-1, k>0 and k < n-1]):
+                        cube[i][j][k] = 0
+        return cube
     
     @property
     def action_keys(self):
@@ -39,7 +45,7 @@ class Cube3D:
                     loss += 1
         return loss
 
-    def plot(self, alpha=0.7, colors_set=None):
+    def plot(self, alpha=0.9, colors_set=None):
         N = self.cube.shape[0]
         axes = [N, N, N] # change to 64
         colors = np.empty(axes + [4], dtype=np.float32)
@@ -48,7 +54,6 @@ class Cube3D:
         COLORS_LIST  = [list(mcolors.to_rgba_array(list(colors_set)[i], alpha=alpha)[0]) for i in range(N+1)]
         STEPS = [0] + [i*(N**3//N) for i in range(1, N+1)] + [10**10]
         for i, s in enumerate(STEPS[0:len(STEPS)-1]):
-            print(i, s, STEPS[i+1], COLORS_LIST[i])
             colors[(self.cube > s) & (self.cube <= STEPS[i+1])] = COLORS_LIST[i]
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
@@ -82,7 +87,7 @@ class Cube3D:
     def mix(self, steps=50):
         for _ in range(steps):
             self.rotate(
-                choice(list(range(self.N))),
+                choice([0, 1, 2]),
                 choice(list(range(self.N))),
                 clockwise=choice([True, False])
             )
