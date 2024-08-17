@@ -91,6 +91,7 @@ class Cube3D:
                 choice(list(range(self.N))),
                 clockwise=choice([True, False])
             )
+        return self
 
     def get_actions_possible(self):
         """N is the cude dimension."""
