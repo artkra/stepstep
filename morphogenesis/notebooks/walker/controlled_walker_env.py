@@ -1,6 +1,9 @@
 import pygame
 import random
 import math
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 # --- Parameters ---
 WIDTH, HEIGHT = 2000, 1200
@@ -21,6 +24,23 @@ target_radius = 80
 target_x = random.randint(200, WIDTH - 200)
 target_y = random.randint(200, HEIGHT - 200)
 
+# --- Controller Model ---
+class NodeController(nn.Module):
+    def __init__(self, in_dim=5, hidden_dim=32):
+        super().__init__()
+        self.fc1 = nn.Linear(in_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.out_signal = nn.Linear(hidden_dim, 1)
+        self.out_delta = nn.Linear(hidden_dim, in_dim)
+
+    def forward(self, x):
+        h = F.relu(self.fc1(x))
+        h = F.relu(self.fc2(h))
+        signal = torch.sigmoid(self.out_signal(h))
+        delta = torch.tanh(self.out_delta(h))
+        return signal, delta
+
+controller = NodeController()  # just instantiated, not applied yet
 
 # --- Classes ---
 class Node:
@@ -45,7 +65,6 @@ class Node:
                 return
             visited.add(idx)
             node = nodes[idx]
-            # sum of sigmoid(channel)
             for i, v in enumerate(node.channels):
                 acc[i] += 1 / (1 + math.exp(-v))
             for e in edges:
@@ -58,12 +77,10 @@ class Node:
         return acc
 
     def distance_to_target(self):
-        """Distance from this node to the target circle. Returns 0 if inside."""
         dx = self.x - target_x
         dy = self.y - target_y
         d = math.sqrt(dx*dx + dy*dy)
         return max(0, d - target_radius)
-
 
 class Edge:
     def __init__(self, a, b):
@@ -120,7 +137,6 @@ def contract_edge(a, b):
 
 # --- Physics ---
 def update():
-    # Update contractions
     for e in edges:
         if e.contracting:
             e.phase += contractionSpeed
@@ -132,7 +148,6 @@ def update():
             if e.phase < 0:
                 e.phase = 0
 
-    # Springs
     for e in edges:
         n1 = nodes[e.a]
         n2 = nodes[e.b]
@@ -147,7 +162,6 @@ def update():
         n2.vx -= fx
         n2.vy -= fy
 
-    # Friction handling: base grips, lifted slides
     for e in edges:
         if e.phase > 0:
             base = nodes[e.a]
@@ -155,7 +169,6 @@ def update():
             base.friction = baseFrictionHigh*(1 - 0.5*e.phase) + baseFrictionLow*(0.5*e.phase)
             lifted.friction = baseFrictionHigh*(1 - e.phase) + baseFrictionLow*e.phase
 
-    # Motion update
     for n in nodes:
         n.vx *= n.friction
         n.vy *= n.friction
@@ -164,8 +177,8 @@ def update():
         n.x += n.vx*dt
         n.y += n.vy*dt
 
-# --- Center of mass trail ---
-trail = []  # now unlimited
+# --- Trail ---
+trail = []
 
 def update_trail():
     cx = sum(n.x for n in nodes)/len(nodes)
@@ -173,23 +186,23 @@ def update_trail():
     trail.append((cx, cy))
 
 # --- Drawing ---
-def draw():
+def draw(loss=0.0):
     screen.fill((10, 10, 20))
 
-    # trail (all in white, persistent)
+    # trail
     if len(trail) > 1:
         pygame.draw.lines(screen, (255,255,255), False, trail, 2)
 
-    # target circle (semi-transparent red)
+    # target circle
     target_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
     pygame.draw.circle(target_surface, (255, 0, 0, 80), (target_x, target_y), target_radius)
     screen.blit(target_surface, (0, 0))
-    
+
     # edges
     for e in edges:
         n1, n2 = nodes[e.a], nodes[e.b]
-        color = (200, 50, 50) if e.phase>0 else (150,150,150)
-        pygame.draw.line(screen, color, (n1.x, n1.y), (n2.x, n2.y), 2)
+        color = (200,50,50) if e.phase>0 else (150,150,150)
+        pygame.draw.line(screen, color, (n1.x,n1.y), (n2.x,n2.y), 2)
 
     # nodes
     for i, n in enumerate(nodes):
@@ -206,12 +219,26 @@ def draw():
     cx, cy = trail[-1]
     pygame.draw.circle(screen, (255,255,255), (int(cx),int(cy)), 3)
 
+    # loss text
+    font = pygame.font.SysFont("Arial", 24)
+    loss_text = font.render(f"Loss: {loss:.3f}", True, (255,255,255))
+    screen.blit(loss_text, (20,20))
+
+    # distance of mass center to target
+    dx = cx - target_x
+    dy = cy - target_y
+    dist_to_target = max(0, math.sqrt(dx*dx + dy*dy) - target_radius)
+    dist_text = font.render(f"Mass center dist: {dist_to_target:.1f}", True, (255,255,0))
+    screen.blit(dist_text, (20, 50))
+
     pygame.display.flip()
+
 
 # --- Main loop ---
 buildConnectedGraph()
-
 running = True
+dummy_loss = 0.0
+
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -231,7 +258,7 @@ while running:
 
     update()
     update_trail()
-    draw()
+    draw(dummy_loss)
     clock.tick(60)
 
 pygame.quit()
