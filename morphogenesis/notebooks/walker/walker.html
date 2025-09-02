@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Graph Creature Playground</title>
+  <style>
+    canvas { background: #111; display: block; margin: auto; }
+  </style>
+</head>
+<body>
+<canvas id="world" width="800" height="600"></canvas>
+<script>
+const canvas = document.getElementById("world");
+const ctx = canvas.getContext("2d");
+
+const gravity = 0.1;
+const friction = 0.8;
+const dt = 1.0;
+const contractionAlpha = 0.3;  // 30% contraction
+const contractionProb = 0.02; // chance per frame
+
+// Node & edge structures
+class Node {
+  constructor(x,y) {
+    this.x = x; this.y = y;
+    this.vx = 0; this.vy = 0;
+    this.radius = 6;
+  }
+}
+class Edge {
+  constructor(a,b) {
+    this.a = a; this.b = b;
+    this.rest = dist(nodes[a], nodes[b]);
+    this.contracting = false;
+  }
+}
+
+function dist(n1,n2){
+  return Math.sqrt((n1.x-n2.x)**2 + (n1.y-n2.y)**2);
+}
+
+// Build a random graph
+let nodes = [];
+let edges = [];
+for (let i=0; i<8; i++){
+  nodes.push(new Node(200+Math.random()*200, 100+Math.random()*200));
+}
+for (let i=0; i<12; i++){
+  let a = Math.floor(Math.random()*nodes.length);
+  let b = Math.floor(Math.random()*nodes.length);
+  if (a!=b) edges.push(new Edge(a,b));
+}
+
+// Physics update
+function update(){
+  // Springs
+  for (let e of edges){
+    let n1 = nodes[e.a], n2 = nodes[e.b];
+    let dx = n2.x - n1.x, dy = n2.y - n1.y;
+    let d = Math.sqrt(dx*dx+dy*dy)+1e-6;
+    let L = e.rest * (e.contracting ? (1-contractionAlpha) : 1);
+    let F = 0.05*(d - L);
+    let fx = F*dx/d, fy = F*dy/d;
+    n1.vx += fx; n1.vy += fy;
+    n2.vx -= fx; n2.vy -= fy;
+  }
+
+  // Integrate
+  for (let n of nodes){
+    n.vy += gravity;
+    n.x += n.vx*dt; n.y += n.vy*dt;
+    n.vx *= 0.99; n.vy *= 0.99;
+
+    // Floor collision
+    if (n.y > canvas.height-20){
+      n.y = canvas.height-20;
+      n.vy *= -0.3;
+      n.vx *= friction;
+    }
+  }
+
+  // Randomly trigger contractions
+  for (let e of edges){
+    if (Math.random() < contractionProb) {
+      e.contracting = true;
+      setTimeout(()=> e.contracting=false, 300);
+    }
+  }
+}
+
+// Draw
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // Edges
+  for (let e of edges){
+    let n1 = nodes[e.a], n2 = nodes[e.b];
+    ctx.strokeStyle = e.contracting? "red":"gray";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(n1.x, n1.y);
+    ctx.lineTo(n2.x, n2.y);
+    ctx.stroke();
+  }
+  // Nodes
+  for (let n of nodes){
+    ctx.fillStyle = "cyan";
+    ctx.beginPath();
+    ctx.arc(n.x,n.y,n.radius,0,2*Math.PI);
+    ctx.fill();
+  }
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
